@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-clinical-50 text-clinical-900 antialiased;
+    /* STEP12: 아이폰 노치/홈 인디케이터 영역을 피해 여백 확보 */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* iOS에서 16px 미만 입력창은 포커스 시 자동 확대되어 레이아웃이 깨지므로 최소 16px로 고정 */
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-clinical-700 px-5 py-3 text-sm font-medium text-white transition-colors hover:bg-clinical-800 disabled:cursor-not-allowed disabled:bg-clinical-300;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center rounded-lg border border-clinical-300 bg-white px-5 py-3 text-sm font-medium text-clinical-700 transition-colors hover:bg-clinical-100;
+  }
+  .card {
+    @apply rounded-xl border border-clinical-200 bg-white shadow-sm;
+  }
+  .label-caption {
+    @apply text-xs font-medium text-clinical-500;
+  }
+}
+
+/* STEP11: PDF 리포트 인쇄용 스타일. window.print()로 저장할 때 불필요한 UI를 숨기고 여백을 정리한다. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white;
+  }
+  .card {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}
