@@ -174,6 +174,33 @@ export interface PrescriptionReasonEntry {
   source: ExerciseSource
 }
 
+/**
+ * 사진 위에서 PT가 직접 탭해 지정하는 2D 좌표 (0~1 정규화, 이미지 좌측상단 기준).
+ * MediaPipe landmark와 달리 자동 인식이 아니라 사람이 직접 짚은 지점이라 z값·visibility가 없다.
+ */
+export interface ManualPoint {
+  x: number
+  y: number
+}
+
+/**
+ * 측면 사진 위에서 PT가 직접 표시하는 골반(ASIS/PSIS)·등뼈(C7/흉추정점/T12) 기준점.
+ * MediaPipe Pose는 관절 중심점만 제공하고 골반뼈·등뼈 위의 지점은 제공하지 않아,
+ * 골반 전후경사·흉추 굽음(등 굽음)은 이 수동 기준점이 있을 때만 계산한다.
+ */
+export interface ManualSideLandmarks {
+  /** ASIS: 전상장골극 (골반 앞쪽) */
+  asis?: ManualPoint
+  /** PSIS: 후상장골극 (골반 뒤쪽) */
+  psis?: ManualPoint
+  /** C7: 목뼈 7번 (등 위쪽 기준점) */
+  c7?: ManualPoint
+  /** 등이 가장 뒤로 굽어 보이는 지점 (흉추 정점) */
+  kyphosisApex?: ManualPoint
+  /** T12 부근: 흉추-요추 경계 */
+  t12?: ManualPoint
+}
+
 // ── STEP5: 각도 계산 ──────────────────────────────────────────
 
 /** 하나의 각도/비대칭 측정값. 계산에 필요한 landmark가 없으면 valueDeg는 null이 된다. */

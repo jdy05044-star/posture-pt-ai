@@ -1,4 +1,4 @@
-import type { AngleMeasurement, Landmark, LandmarkName, PoseAnalysisResult } from '@/types'
+import type { AngleMeasurement, AssessmentSummary, Landmark, LandmarkName, PoseAnalysisResult } from '@/types'
 
 const RAD2DEG = 180 / Math.PI
 
@@ -135,6 +135,31 @@ export function computeFrontalMeasurements(result: PoseAnalysisResult): AngleMea
     }
   }
 
+  // 발 방향 (발목-발끝 라인이 좌우로 벌어진 정도. 실제 좌우 회전(내/외회전) 방향까지는
+  // 2D 정면 사진만으로 신뢰도 있게 판단하기 어려워, 벌어진 정도(각도)만 참고용으로 제공한다.)
+  for (const side of ['left', 'right'] as const) {
+    const label = side === 'left' ? '좌측 발 방향' : '우측 발 방향'
+    const args: BuildArgs = { id: `foot-angle-${side}`, label, area: '발' }
+    const ankle = get(n, side === 'left' ? 'leftAnkle' : 'rightAnkle')
+    const footIndex = get(n, side === 'left' ? 'leftFootIndex' : 'rightFootIndex')
+    if (ankle && footIndex) {
+      const dx = footIndex.x - ankle.x
+      const dy = footIndex.y - ankle.y
+      const angle = Math.atan2(Math.abs(dx), Math.abs(dy) || 0.0001) * RAD2DEG
+      out.push({
+        ...args,
+        valueDeg: Math.round(angle * 10) / 10,
+        direction:
+          angle < 15
+            ? '발끝이 발목 기준 정면 방향에 가깝게 관찰됨'
+            : '발끝이 발목 기준 좌우로 벌어져 있음 (정확한 방향은 2D 정면 사진만으로 단정하기 어려워 벌어진 정도만 참고용으로 제공)',
+        confidence: avgConfidence(ankle, footIndex)
+      })
+    } else {
+      out.push(unavailable(args, '발목 또는 발끝 landmark가 인식되지 않았습니다'))
+    }
+  }
+
   return out
 }
 
@@ -211,13 +236,52 @@ export function computeSagittalMeasurements(result: PoseAnalysisResult): AngleMe
     }
   }
 
-  // 골반 전후경사: ASIS/PSIS landmark가 없어 2D pose만으로는 신뢰도 있게 계산할 수 없음 → 정직하게 미측정 처리
-  out.push(
-    unavailable(
-      { id: 'pelvic-tilt-sagittal', label: '골반 전후 경사', area: '골반' },
-      '골반 전후경사 측정에는 ASIS/PSIS 등 추가 landmark가 필요해 2D 사진 분석만으로는 측정하지 않습니다 (측정 불확실)'
-    )
-  )
+  // 골반 전후경사·등 굽음(흉추 후만)은 MediaPipe Pose의 자동 landmark만으로는 계산할 수 없어
+  // (ASIS/PSIS·등뼈 위 지점이 제공되지 않음) 여기서는 다루지 않는다.
+  // 대신 PT가 사진 위에 직접 표시한 기준점을 사용하는 computeManualSagittalMeasurements
+  // (src/assessment/manualMeasurements.ts)에서 계산하며, assessmentEngine이 이 결과와 합쳐준다.
 
   return out
+}
+
+/**
+ * 측면 사진 위에 라벨을 겹쳐 보여줄 때 기준이 되는 측정값 id 목록.
+ * pelvic-tilt-sagittal · thoracic-kyphosis는 자동 landmark가 아니라 PT가 직접 표시한 기준점으로
+ * 계산되는 값이라, computeSagittalMeasurements가 아닌 computeManualSagittalMeasurements가 만들어낸다
+ * (assessmentEngine에서 합쳐짐). id 목록에는 함께 포함해 다른 측정값과 동일하게 취급한다.
+ */
+export const SAGITTAL_MEASUREMENT_IDS = [
+  'forward-head',
+  'trunk-inclination',
+  'knee-flex-angle',
+  'pelvic-tilt-sagittal',
+  'thoracic-kyphosis'
+]
+
+/** 정면 사진 위에 라벨을 겹쳐 보여줄 때 기준이 되는 측정값 id 목록 */
+export const FRONTAL_MEASUREMENT_IDS = [
+  'head-shift',
+  'shoulder-tilt',
+  'pelvis-tilt',
+  'knee-alignment-left',
+  'knee-alignment-right',
+  'foot-angle-left',
+  'foot-angle-right'
+]
+
+/**
+ * 후면 사진 위에 라벨을 겹쳐 보여줄 때 기준이 되는 측정값 id 목록.
+ * assessmentEngine이 후면 결과의 id 끝에 '-back'을 붙여서 저장하기 때문에 별도 목록으로 관리한다.
+ */
+export const BACK_MEASUREMENT_IDS = FRONTAL_MEASUREMENT_IDS.map((id) => `${id}-back`)
+
+/**
+ * AssessmentSummary(영역별로 묶인 결과)에서 특정 id 목록에 해당하는 측정값만 순서대로 뽑아낸다.
+ * 사진 위 오버레이(MeasurementOverlay)에 넘길 때 사용한다.
+ */
+export function extractMeasurements(summary: AssessmentSummary, ids: string[]): AngleMeasurement[] {
+  const all = summary.areaResults.flatMap((r) => r.measurements)
+  return ids
+    .map((id) => all.find((m) => m.id === id))
+    .filter((m): m is AngleMeasurement => !!m)
 }

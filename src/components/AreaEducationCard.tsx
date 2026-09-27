@@ -33,10 +33,17 @@ export default function AreaEducationCard({ area, defaultOpen = false }: Props) 
         </div>
         <div>
           <p className="label-caption mb-1">자주 관찰되는 패턴</p>
-          <ul className="space-y-1">
+          <ul className="space-y-2">
             {info.commonPatterns.map((p) => (
               <li key={p.name}>
-                <span className="font-medium text-clinical-700">{p.name}</span> — {p.description}
+                <p>
+                  <span className="font-medium text-clinical-700">{p.name}</span> — {p.description}
+                </p>
+                {p.muscleNote && (
+                  <p className="mt-0.5 text-xs text-clinical-500">
+                    <span className="font-medium text-clinical-600">관련 근육 참고</span> · {p.muscleNote}
+                  </p>
+                )}
               </li>
             ))}
           </ul>

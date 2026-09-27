@@ -1,17 +1,29 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { extractMeasurements, SAGITTAL_MEASUREMENT_IDS } from '@/assessment/angleCalculations'
 import { runAssessment } from '@/assessment/assessmentEngine'
+import MeasurementOverlay from '@/components/MeasurementOverlay'
 import { useAppState } from '@/state/AppState'
 import type { AngleMeasurement, ObservationArea } from '@/types'
 
 const AREAS: ObservationArea[] = ['어깨', '골반', '허리/몸통', '머리/목', '무릎', '발']
 
 export default function Compare() {
-  const { results, beforeSummary, clearBefore } = useAppState()
+  const { results, captures, beforeSummary, beforeCaptures, beforeResults, clearBefore, manualSideLandmarks } =
+    useAppState()
   const navigate = useNavigate()
 
-  const afterSummary = useMemo(() => runAssessment(results), [results])
+  const afterSummary = useMemo(() => runAssessment(results, manualSideLandmarks), [results, manualSideLandmarks])
   const afterHasData = Object.values(results).some((r) => r && r.landmarks.length > 0)
+
+  const beforeSagittal = useMemo(
+    () => (beforeSummary ? extractMeasurements(beforeSummary, SAGITTAL_MEASUREMENT_IDS) : []),
+    [beforeSummary]
+  )
+  const afterSagittal = useMemo(
+    () => extractMeasurements(afterSummary, SAGITTAL_MEASUREMENT_IDS),
+    [afterSummary]
+  )
 
   if (!beforeSummary) {
     return (
@@ -43,6 +55,39 @@ export default function Compare() {
           <button onClick={() => navigate('/capture')} className="underline">
             다시 촬영하기
           </button>
+        </div>
+      )}
+
+      {beforeCaptures.side && (
+        <div className="card mb-6 p-4">
+          <h3 className="mb-1 text-sm font-semibold text-clinical-900">측면 사진 비교</h3>
+          <p className="mb-3 text-xs text-clinical-500">
+            같은 방식으로 촬영해도 각도·자세 차이에 따른 측정 오차가 있을 수 있습니다.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="label-caption mb-1 text-center">Before</p>
+              <MeasurementOverlay
+                imageDataUrl={beforeCaptures.side}
+                result={beforeResults.side}
+                measurements={beforeSagittal}
+              />
+            </div>
+            <div>
+              <p className="label-caption mb-1 text-center">After</p>
+              {captures.side && afterHasData ? (
+                <MeasurementOverlay
+                  imageDataUrl={captures.side.dataUrl}
+                  result={results.side}
+                  measurements={afterSagittal}
+                />
+              ) : (
+                <div className="flex h-full min-h-[120px] items-center justify-center rounded-lg border border-dashed border-clinical-200 p-3 text-center text-xs text-clinical-400">
+                  아직 새 측면 사진이 없습니다
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

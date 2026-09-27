@@ -1,14 +1,43 @@
 import { useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  BACK_MEASUREMENT_IDS,
+  extractMeasurements,
+  FRONTAL_MEASUREMENT_IDS,
+  SAGITTAL_MEASUREMENT_IDS
+} from '@/assessment/angleCalculations'
 import { runAssessment } from '@/assessment/assessmentEngine'
+import AssessmentSummaryPanel from '@/components/AssessmentSummaryPanel'
+import ManualSideLandmarkEditor from '@/components/ManualSideLandmarkEditor'
+import MeasurementOverlay from '@/components/MeasurementOverlay'
 import PostureResultCard from '@/components/PostureResultCard'
 import { useAppState } from '@/state/AppState'
 
 export default function Result() {
-  const { results, captures, beforeSummary, saveAsBefore, setLatestSummary } = useAppState()
+  const {
+    results,
+    captures,
+    beforeSummary,
+    saveAsBefore,
+    setLatestSummary,
+    manualSideLandmarks,
+    setManualSideLandmarks
+  } = useAppState()
   const navigate = useNavigate()
 
-  const summary = useMemo(() => runAssessment(results), [results])
+  const summary = useMemo(() => runAssessment(results, manualSideLandmarks), [results, manualSideLandmarks])
+  const sagittalMeasurements = useMemo(
+    () => extractMeasurements(summary, SAGITTAL_MEASUREMENT_IDS),
+    [summary]
+  )
+  const frontalMeasurements = useMemo(
+    () => extractMeasurements(summary, FRONTAL_MEASUREMENT_IDS),
+    [summary]
+  )
+  const backMeasurements = useMemo(
+    () => extractMeasurements(summary, BACK_MEASUREMENT_IDS),
+    [summary]
+  )
 
   const anyAnalyzed = Object.values(results).some((r) => r && r.landmarks.length > 0)
 
@@ -42,6 +71,38 @@ export default function Result() {
         </div>
       )}
 
+      {captures.front && (
+        <div className="card mb-6 p-4">
+          <h3 className="mb-1 text-sm font-semibold text-clinical-900">정면 사진 측정 보기</h3>
+          <p className="mb-3 text-xs text-clinical-500">
+            점선은 기준이 되는 수직선이며, 색상이 있는 점과 라벨은 실제로 인식된 관절 위치를 기준으로 표시됩니다.
+          </p>
+          <MeasurementOverlay
+            imageDataUrl={captures.front.dataUrl}
+            result={results.front}
+            measurements={frontalMeasurements}
+          />
+        </div>
+      )}
+
+      {captures.back && (
+        <div className="card mb-6 p-4">
+          <h3 className="mb-1 text-sm font-semibold text-clinical-900">후면 사진 측정 보기</h3>
+          <p className="mb-3 text-xs text-clinical-500">
+            점선은 기준이 되는 수직선이며, 색상이 있는 점과 라벨은 실제로 인식된 관절 위치를 기준으로 표시됩니다.
+          </p>
+          <MeasurementOverlay
+            imageDataUrl={captures.back.dataUrl}
+            result={results.back}
+            measurements={backMeasurements}
+          />
+        </div>
+      )}
+
+      <div className="mb-6">
+        <AssessmentSummaryPanel summary={summary} />
+      </div>
+
       {summary.priorityAreas.length > 0 && (
         <div className="card mb-6 p-4">
           <h3 className="mb-3 text-sm font-semibold text-clinical-900">우선 확인 영역</h3>
@@ -72,6 +133,31 @@ export default function Result() {
         </div>
       )}
 
+      {captures.side && (
+        <div className="card mb-6 p-4">
+          <h3 className="mb-1 text-sm font-semibold text-clinical-900">측면 사진 측정 보기</h3>
+          <p className="mb-3 text-xs text-clinical-500">
+            점선은 기준이 되는 수직선이며, 색상이 있는 점과 라벨은 실제로 인식된 관절 위치를 기준으로 표시됩니다.
+          </p>
+          <MeasurementOverlay
+            imageDataUrl={captures.side.dataUrl}
+            result={results.side}
+            measurements={sagittalMeasurements}
+          />
+        </div>
+      )}
+
+      {captures.side && (
+        <div className="card mb-6 p-4">
+          <h3 className="mb-1 text-sm font-semibold text-clinical-900">골반·등 기준점 직접 표시 (골반 전후경사 · 등 굽음)</h3>
+          <ManualSideLandmarkEditor
+            imageDataUrl={captures.side.dataUrl}
+            value={manualSideLandmarks}
+            onChange={setManualSideLandmarks}
+          />
+        </div>
+      )}
+
       <div className="space-y-4">
         {summary.areaResults.map((r) => (
           <PostureResultCard key={r.area} result={r} />
@@ -94,7 +180,10 @@ export default function Result() {
             <p className="mb-3 text-xs text-clinical-500">
               이 결과를 Before로 저장해두면, 운동 프로그램 수행 후 다시 촬영했을 때 변화를 비교할 수 있습니다.
             </p>
-            <button onClick={() => saveAsBefore(summary)} className="btn-secondary w-full py-2 text-sm">
+            <button
+              onClick={() => saveAsBefore(summary, captures, results)}
+              className="btn-secondary w-full py-2 text-sm"
+            >
               이 결과를 Before로 저장
             </button>
           </>
